@@ -3,6 +3,8 @@
 import os
 import sys
 
+from decouple import config
+
 
 def main():
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', config('LOCAL_SETTINGS_MODULE'))
