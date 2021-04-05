@@ -88,3 +88,5 @@ class Routine(models.Model):
     other_interaction = models.BooleanField()
     wore_mask = models.BooleanField()
     wore_ppe = models.BooleanField()
+    location = models.CharField(max_length=60)
+    date = models.DateField(auto_now_add=True)

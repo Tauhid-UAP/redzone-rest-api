@@ -11,5 +11,7 @@ urlpatterns = [
     path('user_detail/', views.UserDetailView.as_view(), name='user_detail_view'),
     path('get_auth_token/', obtain_auth_token, name='api_token_auth'),
     path('get_prediction/', views.PredictionView.as_view(), name='prediction_view'),
-    path('credential_match/', views.CredentialMatchView.as_view(), name='credential_match_view'),
+    path('post_routine/', views.PostRoutineView.as_view(), name='post_routine_view'),
+    path('my_routines/', views.UserRoutinesView.as_view(), name='user_routines_view'), # user views their routines
+    # path('credential_match/', views.CredentialMatchView.as_view(), name='credential_match_view'),
 ]

@@ -4,11 +4,11 @@ from rest_framework.permissions import IsAuthenticated
 
 from .models import RedZoneUser, Routine
 
-from .serializers import RedZoneUserSerializer
+from .serializers import RedZoneUserSerializer, RoutineSerializer
 
 import json
 
-from .utils import to_datetime, make_prediction
+from .utils import to_datetime, make_prediction, get_user_from_token
 
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import obtain_auth_token
@@ -53,10 +53,12 @@ class UserCreationView(APIView):
             data['username'] = user.username
             data['profession'] = user.profession
             data['date_of_birth'] = str(user.date_of_birth)
-        else:
-            print('Invalid!')
-            data = serializer.errors
-        
+
+            return Response(data)
+            
+        print('Invalid!')
+        data = serializer.errors
+
         return Response(data)
 
 # User creation POST data
@@ -95,12 +97,12 @@ class UserDetailView(APIView):
         print('token: ', token)
 
         # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
-        user = Token.objects.get(key=token).user
+        user = get_user_from_token(token)
         serializer = RedZoneUserSerializer(user, many=False)
 
         return Response(serializer.data)
 
-def PredictionView(APIView):
+class PredictionView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
@@ -118,6 +120,113 @@ def PredictionView(APIView):
         affection_probability = make_prediction(user_routines_queryset)
 
         data['affection_probability'] = affection_probability
+
+        return Response(serializer.data)
+
+# user can post a routine by providing auth token
+class PostRoutineView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        data = {}
+
+        print('Getting POST data: ', request.data)
+
+        # slice from where the token begins
+        token = request.META.get('HTTP_AUTHORIZATION')[6:]
+        print('token: ', token)
+
+        # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
+        user = get_user_from_token(token)
+        print('user: ', user.username)
+
+        deserialized_data = request.data
+        print('deserialized_data: ', deserialized_data)
+
+        # boolean values different formats
+        # in python and other environments
+        serializer_data = {
+            'covid_positive': False,
+            'visited_outside': False,
+            'other_interaction': False,
+            'wore_mask': False,
+            'wore_ppe': False,
+        }
+        
+        # convert boolean strings to uppercase
+        # for easier comparison
+        covid_positive = deserialized_data['covid_positive'].upper()
+        visited_outside = deserialized_data['visited_outside'].upper()
+        other_interaction = deserialized_data['other_interaction'].upper()
+        wore_mask = deserialized_data['wore_mask'].upper()
+        wore_ppe = deserialized_data['wore_ppe'].upper()
+
+        # assign appropriately
+        if covid_positive == "TRUE":
+            serializer_data['covid_positive'] = True
+        if visited_outside == "TRUE":
+            serializer_data['visited_outside'] = True
+        if other_interaction == "TRUE":
+            serializer_data['other_interaction'] = True
+        if wore_mask == "TRUE":
+            serializer_data['wore_mask'] = True
+        if wore_ppe == "TRUE":
+            serializer_data['wore_ppe'] = True
+
+        serializer = RoutineSerializer(data=serializer_data)
+        print('serializer: ', serializer)
+        
+        print('Checking validity:')
+        if serializer.is_valid():
+            print('Valid!')
+            routine = serializer.save(user=user)
+            routine.user = user
+            routine.save()
+            data['response'] = 'User created successfully.'
+            data['covid_positive'] = routine.covid_positive
+            data['visited_outside'] = routine.visited_outside
+            data['other_interaction'] = routine.other_interaction
+            data['wore_mask'] = routine.wore_mask
+            data['wore_ppe'] = routine.wore_ppe
+
+            return Response(data)
+    
+        print('Invalid!')
+        data = serializer.errors
+    
+        return Response(data)
+
+        
+
+        return Response(serializer.data)
+
+# Header: {Authorization: Token 5b3eb583ce430bb8cb7bf700e559b33a96ac8375}
+# {
+#     "covid_positive": false,
+#     "visited_outside": true,
+#     "other_interaction": false,
+#     "wore_mask": true,
+#     "wore_ppe": false,
+#     "location": "Rajabazar"
+# }
+
+# user can view their routines by providing auth token
+class UserRoutinesView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        data = {}
+        
+        # slice from where the token begins
+        token = request.META.get('HTTP_AUTHORIZATION')[6:]
+        print('token: ', token)
+
+        # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
+        user = get_user_from_token(token)
+
+        user_routines = Routine.objects.filter(user=user)
+        
+        serializer = RoutineSerializer(user_routines, many=True)
 
         return Response(serializer.data)
 

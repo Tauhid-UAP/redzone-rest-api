@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import RedZoneUser
+from .models import RedZoneUser, Routine
 
 class RedZoneUserSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
@@ -40,3 +40,15 @@ class RedZoneUserSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+
+class RoutineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Routine
+        fields = [
+            'covid_positive',
+            'visited_outside',
+            'other_interaction',
+            'wore_mask',
+            'wore_ppe',
+            'location',
+        ]
