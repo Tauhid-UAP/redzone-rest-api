@@ -80,3 +80,11 @@ class RedZoneUser(AbstractBaseUser):
 
     class Meta:
         verbose_name_plural = "RedZone Users"
+
+class Routine(models.Model):
+    user = models.ForeignKey(to=RedZoneUser, on_delete=models.CASCADE)
+    covid_positive = models.BooleanField()
+    visited_outside = models.BooleanField()
+    other_interaction = models.BooleanField()
+    wore_mask = models.BooleanField()
+    wore_ppe = models.BooleanField()

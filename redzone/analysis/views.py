@@ -11,6 +11,7 @@ import json
 from .utils import to_datetime
 
 from rest_framework.authtoken.models import Token
+from rest_framework.authtoken.views import obtain_auth_token
 
 # Create your views here.
 
@@ -32,10 +33,11 @@ class UserCreationView(APIView):
         data = {}
         print('Getting POST data: ', request.data)
         
-        serializer_data = request.data['serializer_data']
+        serializer_data = json.loads(request.data['serializer_data'])
+        print('serializer_data: ', serializer_data['first_name'])
+        print('date_string_rcv: ', request.data['date_string'])
         serializer_data['date_of_birth'] = to_datetime(request.data['date_string'])
         print('serializer_data: ', serializer_data)
-        
         serializer = RedZoneUserSerializer(data=serializer_data)
         print('serializer: ', serializer)
         
@@ -44,13 +46,20 @@ class UserCreationView(APIView):
             print('Valid!')
             user = serializer.save()
             data['response'] = 'User created successfully.'
+            data['first_name'] = user.first_name
+            data['first_name'] = user.last_name
+            data['gender'] = user.gender
+            data['email'] = user.email
             data['username'] = user.username
+            data['profession'] = user.profession
+            data['date_of_birth'] = str(user.date_of_birth)
         else:
             print('Invalid!')
             data = serializer.errors
         
         return Response(data)
-# User POST data
+
+# User creation POST data
 # {
 #     "serializer_data": {
 #         "first_name": "Kamruzzaman",
@@ -65,6 +74,11 @@ class UserCreationView(APIView):
 #     "date_string": "1998-03-17"
 # }
 
+# Auth token
+# {"token":"0365da563e3d6eae04b22222e5b341e1173c85df"}
+
+# for testing
+# will be closed later
 class UserListView(APIView):
     def get(self, request):
         users = RedZoneUser.objects.all()
@@ -85,3 +99,23 @@ class UserDetailView(APIView):
         serializer = RedZoneUserSerializer(user, many=False)
 
         return Response(serializer.data)
+
+# class CredentialMatchView(APIView):
+#     def post(self, request):
+#         data = {
+#             "first_name": "Kamruzzaman",
+#             "last_name": "Tauhid",
+#             "gender": 1,
+#             "email": "17201114@uap-bd.edu",
+#             "username": "tauhid",
+#             "profession": "Athlete"
+#         }
+        
+#         # data = {}
+        
+#         # email = request.data['username']
+#         # password = request.data['password']
+
+#         # user = RedZoneUser.objects.filter(email=email, password=password)
+
+#         return Response(data)
