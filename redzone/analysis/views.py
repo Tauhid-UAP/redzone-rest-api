@@ -2,13 +2,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from .models import RedZoneUser
+from .models import RedZoneUser, Routine
 
 from .serializers import RedZoneUserSerializer
 
 import json
 
-from .utils import to_datetime
+from .utils import to_datetime, make_prediction
 
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import obtain_auth_token
@@ -97,6 +97,27 @@ class UserDetailView(APIView):
         # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
         user = Token.objects.get(key=token).user
         serializer = RedZoneUserSerializer(user, many=False)
+
+        return Response(serializer.data)
+
+def PredictionView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        data = {}
+
+        # slice from where the token begins
+        token = request.META.get('HTTP_AUTHORIZATION')[6:]
+        print('token: ', token)
+
+        # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
+        user = Token.objects.get(key=token).user
+        
+        user_routines_queryset = Routine.objects.filter(user=user)
+
+        affection_probability = make_prediction(user_routines_queryset)
+
+        data['affection_probability'] = affection_probability
 
         return Response(serializer.data)
 
