@@ -89,43 +89,28 @@ class UserListView(APIView):
         return Response(serializer.data)
 
 class UserDetailView(APIView):
-    permission_classes = (IsAuthenticated,)
+    # permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         # slice from where the token begins
-        token = request.META.get('HTTP_AUTHORIZATION')[6:]
+        # token = request.META.get('HTTP_AUTHORIZATION')[6:]
+        # print('token: ', token)
+        token = request.GET.get('token')
         print('token: ', token)
 
-        # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
+        if not Token.objects.filter(key=token).exists():
+            data['denied'] = 'Invalid token.'
+            return Response()
+
+        # get the user from the token provided
         user = get_user_from_token(token)
         serializer = RedZoneUserSerializer(user, many=False)
 
         return Response(serializer.data)
 
-class PredictionView(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def get(self, request):
-        data = {}
-
-        # slice from where the token begins
-        token = request.META.get('HTTP_AUTHORIZATION')[6:]
-        print('token: ', token)
-
-        # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
-        user = Token.objects.get(key=token).user
-        
-        user_routines_queryset = Routine.objects.filter(user=user)
-
-        affection_probability = make_prediction(user_routines_queryset)
-
-        data['affection_probability'] = affection_probability
-
-        return Response(serializer.data)
-
 # user can post a routine by providing auth token
 class PostRoutineView(APIView):
-    permission_classes = (IsAuthenticated,)
+    # permission_classes = (IsAuthenticated,)
 
     def post(self, request):
         data = {}
@@ -133,14 +118,19 @@ class PostRoutineView(APIView):
         print('Getting POST data: ', request.data)
 
         # slice from where the token begins
-        token = request.META.get('HTTP_AUTHORIZATION')[6:]
+        # token = request.META.get('HTTP_AUTHORIZATION')[6:]
+        token = request.data['token']
         print('token: ', token)
+
+        if not Token.objects.filter(key=token).exists():
+            data['denied'] = 'Invalid token.'
+            return Response()
 
         # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
         user = get_user_from_token(token)
         print('user: ', user.username)
 
-        deserialized_data = request.data
+        deserialized_data = json.loads(request.data['serializer_data'])
         print('deserialized_data: ', deserialized_data)
 
         # boolean values different formats
@@ -160,6 +150,9 @@ class PostRoutineView(APIView):
         other_interaction = deserialized_data['other_interaction'].upper()
         wore_mask = deserialized_data['wore_mask'].upper()
         wore_ppe = deserialized_data['wore_ppe'].upper()
+        location = deserialized_data['location']
+
+        print('serializer_data: ', serializer_data)
 
         # assign appropriately
         if covid_positive == "TRUE":
@@ -173,6 +166,8 @@ class PostRoutineView(APIView):
         if wore_ppe == "TRUE":
             serializer_data['wore_ppe'] = True
 
+        serializer_data['location'] = location
+
         serializer = RoutineSerializer(data=serializer_data)
         print('serializer: ', serializer)
         
@@ -182,23 +177,21 @@ class PostRoutineView(APIView):
             routine = serializer.save(user=user)
             routine.user = user
             routine.save()
-            data['response'] = 'User created successfully.'
-            data['covid_positive'] = routine.covid_positive
-            data['visited_outside'] = routine.visited_outside
-            data['other_interaction'] = routine.other_interaction
-            data['wore_mask'] = routine.wore_mask
-            data['wore_ppe'] = routine.wore_ppe
+            data['token'] = token
+            # data['response'] = 'User created successfully.'
+            # data['covid_positive'] = routine.covid_positive
+            # data['visited_outside'] = routine.visited_outside
+            # data['other_interaction'] = routine.other_interaction
+            # data['wore_mask'] = routine.wore_mask
+            # data['wore_ppe'] = routine.wore_ppe
 
             return Response(data)
     
         print('Invalid!')
         data = serializer.errors
+        print(data)
     
         return Response(data)
-
-        
-
-        return Response(serializer.data)
 
 # Header: {Authorization: Token 5b3eb583ce430bb8cb7bf700e559b33a96ac8375}
 # {
@@ -229,6 +222,65 @@ class UserRoutinesView(APIView):
         serializer = RoutineSerializer(user_routines, many=True)
 
         return Response(serializer.data)
+
+# user sends location
+# respond with % risk for that location
+class LocationRiskView(APIView):
+    def get(self, request):
+        data = {}
+
+        location = request.GET.get('location')
+        if not location:
+            data['denied'] = 'No location provided.'
+            return Response(data)
+
+
+        # get all routines of a particular location
+        location_routines = Routine.objects.filter(location=location)
+        print('location_routines: ', location_routines)
+        # get count of all routines of that location
+        count_location_routines = location_routines.count()
+        print('count_location_routines: ', count_location_routines)
+        # get count of all routines where somebody tested positive
+        count_location_positives = location_routines.filter(covid_positive=True).count()
+        print('count_location_positives: ', count_location_positives)
+        affected_rate = (float(count_location_positives) / count_location_routines) * 100.0
+        print('affected_rate: ', affected_rate)
+
+        data['affected_rate'] = affected_rate
+
+        return Response(data)
+
+        # distinct_locations = Routine.objects.values_list('location', flat=True).distinct()
+        # for location in distinct_locations:
+
+class PredictionView(APIView):
+    # permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        data = {}
+
+        # slice from where the token begins
+        # token = request.META.get('HTTP_AUTHORIZATION')[6:]
+        # print('token: ', token)
+        token = request.GET.get('token')
+        print('token: ', token)
+
+        if not Token.objects.filter(key=token).exists():
+            data['denied'] = 'Invalid token.'
+            return Response()
+
+        # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
+        user = Token.objects.get(key=token).user
+        
+        user_routines_queryset = Routine.objects.filter(user=user)
+
+        affection_probability = make_prediction(user_routines_queryset)
+
+        data['affection_probability'] = 'Jadu says stay at home. Affection Probability: ' + str(affection_probability)
+
+        return Response(data)
+
 
 # class CredentialMatchView(APIView):
 #     def post(self, request):
