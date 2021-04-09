@@ -9,7 +9,7 @@ from sklearn.naive_bayes import GaussianNB
 
 import numpy as np
 
-from .models import Routine
+from .models import Routine, Location
 
 def to_datetime(str_date):
     split_str_date = str_date.split('-')
@@ -52,6 +52,10 @@ def get_affection_probability(user):
     wore_mask = get_values_list(routines, 'wore_mask')
     wore_ppe = get_values_list(routines, 'wore_ppe')
     locations = get_values_list(routines, 'location')
+    # all_locations = [
+    #     'Rajabazar', 'Dhaka', 'Nilphamari', 'Dhanmondi', 'Rangpur', 'Gulistan', 'Mirpur', 'Farmgate'
+    # ]
+    all_locations = get_values_list(Location.objects.all(), 'name')
 
     # encode data to integers
     le = preprocessing.LabelEncoder()
@@ -66,7 +70,11 @@ def get_affection_probability(user):
     print(wore_mask_encoded)
     wore_ppe_encoded = le.fit_transform(wore_ppe)
     print(wore_ppe_encoded)
-    locations_encoded = le.fit_transform(locations)
+    # fit to all locations
+    # to avoid label does not exist error
+    le.fit(all_locations)
+    # transform to fitted location data
+    locations_encoded = le.transform(locations)
     print(locations_encoded)
 
     # le will work with respect to
@@ -141,13 +149,47 @@ def make_prediction(model_gnb, le, routines):
     count_predictions = dict(zip(unique, counts))
     print('count_predictions: ', count_predictions)
 
-    # calculate probability of unsafe
-    # by finding the percentage of positive (1) predictions
-    # among all predictions
-    probability_unsafe = (float(count_predictions[1]) / len(routines)) * 100
+    probability_unsafe = 0.0
+    if 1 in count_predictions:
+        # calculate probability of unsafe
+        # by finding the percentage of positive (1) predictions
+        # among all predictions
+        probability_unsafe = (float(count_predictions[1]) / len(routines)) * 100
     print('probability_unsafe: ', probability_unsafe)
+
     # hence find probability of safe
     probability_safe = 100.0 - probability_unsafe
     print('probability_safe: ', probability_safe)
 
     return (probability_safe, probability_unsafe)
+
+# the following are for extracting model csvs'
+def get_model_csv(request, model, secret, output_file):
+    csv_secret = config('CSV_SECRET')
+
+    if secret == csv_secret:
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=' + model.__name__ + 's.csv'
+        model_instances = model.objects.all()
+
+        # get the tuple containing field names
+        fields_tuple = model._meta.fields
+
+        # copy to list as tuples are immutable
+        fields = []
+        for field in fields_tuple:
+            fields.append(field)
+
+        # remove the id field
+        fields.pop(0)
+
+        writer = csv.writer(response)
+        writer.writerow([field.name for field in fields])
+
+        for model_instance in model_instances:
+            writer.writerow([getattr(model_instance, field.name) for field in fields])
+
+        return response
+
+    else:
+        return redirect('homepage')

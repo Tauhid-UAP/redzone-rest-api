@@ -67,8 +67,8 @@ class RedZoneUser(AbstractBaseUser):
     first_name = models.CharField(max_length=60, verbose_name='first_name')
     last_name = models.CharField(max_length=60, verbose_name='last_name')
     gender = models.SmallIntegerField(choices=GENDER_CHOICES, null=True, blank=True)
-    date_of_birth = models.DateField()
-    profession = models.CharField(max_length=60, verbose_name='profession', null=False, blank=False)
+    date_of_birth = models.DateField(null=True, blank=True)
+    profession = models.CharField(max_length=60, verbose_name='profession', null=True, blank=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username',]
@@ -80,6 +80,9 @@ class RedZoneUser(AbstractBaseUser):
 
     class Meta:
         verbose_name_plural = "RedZone Users"
+
+class Location(models.Model):
+    name = models.CharField(max_length=60)
 
 class Routine(models.Model):
     user = models.ForeignKey(to=RedZoneUser, on_delete=models.CASCADE)

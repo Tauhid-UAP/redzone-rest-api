@@ -2,13 +2,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from .models import RedZoneUser, Routine
+from .models import RedZoneUser, Routine, Location
 
 from .serializers import RedZoneUserSerializer, RoutineSerializer
 
 import json
 
-from .utils import to_datetime, get_affection_probability, get_user_from_token, make_prediction
+from .utils import to_datetime, get_affection_probability, get_user_from_token, make_prediction, get_model_csv
 
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import obtain_auth_token
@@ -150,7 +150,6 @@ class PostRoutineView(APIView):
         other_interaction = deserialized_data['other_interaction'].upper()
         wore_mask = deserialized_data['wore_mask'].upper()
         wore_ppe = deserialized_data['wore_ppe'].upper()
-        location = deserialized_data['location']
 
         print('serializer_data: ', serializer_data)
 
@@ -165,14 +164,14 @@ class PostRoutineView(APIView):
             serializer_data['wore_mask'] = True
         if wore_ppe == "TRUE":
             serializer_data['wore_ppe'] = True
-
-        serializer_data['location'] = location
+        serializer_data['location'] = deserialized_data['location'].strip()
 
         serializer = RoutineSerializer(data=serializer_data)
         print('serializer: ', serializer)
         
         print('Checking validity:')
         if serializer.is_valid():
+            Location.objects.get_or_create(name=serializer_data['location'])
             print('Valid!')
             routine = serializer.save(user=user)
             routine.user = user
@@ -244,10 +243,13 @@ class LocationRiskView(APIView):
         # get count of all routines where somebody tested positive
         count_location_positives = location_routines.filter(covid_positive=True).count()
         print('count_location_positives: ', count_location_positives)
-        affected_rate = (float(count_location_positives) / count_location_routines) * 100.0
+        affected_rate = 0.0
+        if count_location_routines > 0.0:
+            affected_rate = (float(count_location_positives) / count_location_routines) * 100.0
         print('affected_rate: ', affected_rate)
 
         data['affected_rate'] = affected_rate
+        data['amount_data'] = 'Calculated from ' + str(location_routines.count()) + ' records for ' + location + '.'
 
         return Response(data)
 
@@ -274,6 +276,7 @@ class PredictionView(APIView):
 
         # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
         user = Token.objects.get(key=token).user
+        print('user: ', user)
 
         probability_safe, probability_unsafe = get_affection_probability(user)
 
@@ -301,3 +304,12 @@ class PredictionView(APIView):
 #         # user = RedZoneUser.objects.filter(email=email, password=password)
 
 #         return Response(data)
+
+def get_users_csv(request, secret):
+    return get_model_csv(request, RedZoneUser, secret, 'redzoneusers')
+
+def get_locations_csv(request, secret):
+    return get_model_csv(request, Location, secret, 'locations')
+
+def get_routines_csv(request, secret):
+    return get_model_csv(request, Routine, secret, 'routines')
