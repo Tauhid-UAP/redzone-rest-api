@@ -8,7 +8,7 @@ from .serializers import RedZoneUserSerializer, RoutineSerializer
 
 import json
 
-from .utils import to_datetime, make_prediction, get_user_from_token
+from .utils import to_datetime, get_affection_probability, get_user_from_token, make_prediction
 
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import obtain_auth_token
@@ -124,7 +124,7 @@ class PostRoutineView(APIView):
 
         if not Token.objects.filter(key=token).exists():
             data['denied'] = 'Invalid token.'
-            return Response()
+            return Response(data)
 
         # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
         user = get_user_from_token(token)
@@ -258,6 +258,7 @@ class PredictionView(APIView):
     # permission_classes = (IsAuthenticated,)
 
     def get(self, request):
+        print('In get_prediction:')
         data = {}
 
         # slice from where the token begins
@@ -267,17 +268,16 @@ class PredictionView(APIView):
         print('token: ', token)
 
         if not Token.objects.filter(key=token).exists():
+            print('Invalid token.')
             data['denied'] = 'Invalid token.'
-            return Response()
+            return Response(data)
 
         # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
         user = Token.objects.get(key=token).user
-        
-        user_routines_queryset = Routine.objects.filter(user=user)
 
-        affection_probability = make_prediction(user_routines_queryset)
+        probability_safe, probability_unsafe = get_affection_probability(user)
 
-        data['affection_probability'] = 'Jadu says stay at home. Affection Probability: ' + str(affection_probability)
+        data['affection_probability'] = str(probability_unsafe) + '%'
 
         return Response(data)
 
