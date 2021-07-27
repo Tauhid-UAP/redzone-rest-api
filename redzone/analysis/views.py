@@ -12,7 +12,6 @@ import json
 from .utils import to_datetime, get_affection_probability, get_user_from_token, make_prediction, get_model_csv
 
 from rest_framework.authtoken.models import Token
-from rest_framework.authtoken.views import obtain_auth_token
 
 # Create your views here.
 
@@ -131,8 +130,6 @@ class PostRoutineView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
-        data = {}
-
         print('Getting POST data: ', request.data)
 
         # slice from where the token begins
@@ -141,74 +138,39 @@ class PostRoutineView(APIView):
         print('token: ', token)
 
         if not Token.objects.filter(key=token).exists():
-            data['denied'] = 'Invalid token.'
-            return Response(data)
+            data = {
+                'denied': 'Invalid token.'
+            }
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)
 
         # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
         user = get_user_from_token(token)
         print('user: ', user.username)
 
-        deserialized_data = json.loads(request.data['serializer_data'])
+        # the request.data will already
+        # be deserialized by APIView
+        deserialized_data = request.data
         print('deserialized_data: ', deserialized_data)
 
-        # boolean values different formats
-        # in python and other environments
-        serializer_data = {
-            'covid_positive': False,
-            'visited_outside': False,
-            'other_interaction': False,
-            'wore_mask': False,
-            'wore_ppe': False,
-        }
-        
-        # convert boolean strings to uppercase
-        # for easier comparison
-        covid_positive = deserialized_data['covid_positive'].upper()
-        visited_outside = deserialized_data['visited_outside'].upper()
-        other_interaction = deserialized_data['other_interaction'].upper()
-        wore_mask = deserialized_data['wore_mask'].upper()
-        wore_ppe = deserialized_data['wore_ppe'].upper()
+        deserialized_data['location'] = deserialized_data['location'].strip()
 
-        print('serializer_data: ', serializer_data)
-
-        # assign appropriately
-        if covid_positive == "TRUE":
-            serializer_data['covid_positive'] = True
-        if visited_outside == "TRUE":
-            serializer_data['visited_outside'] = True
-        if other_interaction == "TRUE":
-            serializer_data['other_interaction'] = True
-        if wore_mask == "TRUE":
-            serializer_data['wore_mask'] = True
-        if wore_ppe == "TRUE":
-            serializer_data['wore_ppe'] = True
-        serializer_data['location'] = deserialized_data['location'].strip()
-
-        serializer = RoutineSerializer(data=serializer_data)
+        serializer = RoutineSerializer(data=deserialized_data)
         print('serializer: ', serializer)
         
         print('Checking validity:')
         if serializer.is_valid():
-            Location.objects.get_or_create(name=serializer_data['location'])
+            Location.objects.get_or_create(name=deserialized_data['location'])
             print('Valid!')
             routine = serializer.save(user=user)
             routine.user = user
             routine.save()
-            data['token'] = token
-            # data['response'] = 'User created successfully.'
-            # data['covid_positive'] = routine.covid_positive
-            # data['visited_outside'] = routine.visited_outside
-            # data['other_interaction'] = routine.other_interaction
-            # data['wore_mask'] = routine.wore_mask
-            # data['wore_ppe'] = routine.wore_ppe
 
-            return Response(data)
+            return Response(serializer.data)
     
         print('Invalid!')
-        data = serializer.errors
-        print(data)
+        print(serializer.errors)
     
-        return Response(data)
+        return Response(serializer.errors, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 # Header: {Authorization: Token 5b3eb583ce430bb8cb7bf700e559b33a96ac8375}
 # {
