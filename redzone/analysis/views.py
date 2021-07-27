@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
 
 from .models import RedZoneUser, Routine, Location
 
@@ -33,21 +34,35 @@ class UserCreationView(APIView):
         data = {}
         print('Getting POST data: ', request.data)
         
-        serializer_data = json.loads(request.data['serializer_data'])
-        print('serializer_data: ', serializer_data['first_name'])
-        print('date_string_rcv: ', request.data['date_string'])
-        serializer_data['date_of_birth'] = to_datetime(request.data['date_string'])
+        # serializer_data = json.loads(request.data['serializer_data'])
+        # print('serializer_data: ', serializer_data['first_name'])
+        # print('date_string_rcv: ', request.data['date_string'])
+        # serializer_data['date_of_birth'] = to_datetime(request.data['date_string'])
+        # print('serializer_data: ', serializer_data)
+        # serializer = RedZoneUserSerializer(data=serializer_data)
+        # print('serializer: ', serializer)
+
+        serializer_data = {}
+        serializer_data['first_name'] = request.data['firstName']
+        serializer_data['last_name'] = request.data['lastName']
+        serializer_data['username'] = request.data['username']
+        serializer_data['gender'] = request.data['gender']
+        serializer_data['email'] = request.data['email']
+        serializer_data['password'] = request.data['password']
+        serializer_data['password2'] = request.data['password']
+        serializer_data['profession'] = request.data['profession']
+        serializer_data['date_of_birth'] = to_datetime(request.data['dateOfBirth'])
         print('serializer_data: ', serializer_data)
         serializer = RedZoneUserSerializer(data=serializer_data)
         print('serializer: ', serializer)
-        
+
         print('Checking validity:')
         if serializer.is_valid():
             print('Valid!')
             user = serializer.save()
             data['response'] = 'User created successfully.'
             data['first_name'] = user.first_name
-            data['first_name'] = user.last_name
+            data['last_name'] = user.last_name
             data['gender'] = user.gender
             data['email'] = user.email
             data['username'] = user.username
@@ -58,6 +73,7 @@ class UserCreationView(APIView):
             
         print('Invalid!')
         data = serializer.errors
+        print(data)
 
         return Response(data)
 
@@ -89,18 +105,20 @@ class UserListView(APIView):
         return Response(serializer.data)
 
 class UserDetailView(APIView):
-    # permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request):
+        data = {}
+
         # slice from where the token begins
-        # token = request.META.get('HTTP_AUTHORIZATION')[6:]
+        token = request.META.get('HTTP_AUTHORIZATION')[6:]
         # print('token: ', token)
-        token = request.GET.get('token')
+        # token = request.GET.get('token')
         print('token: ', token)
 
         if not Token.objects.filter(key=token).exists():
             data['denied'] = 'Invalid token.'
-            return Response()
+            return Response(data)
 
         # get the user from the token provided
         user = get_user_from_token(token)
@@ -110,7 +128,7 @@ class UserDetailView(APIView):
 
 # user can post a routine by providing auth token
 class PostRoutineView(APIView):
-    # permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated,)
 
     def post(self, request):
         data = {}
@@ -118,8 +136,8 @@ class PostRoutineView(APIView):
         print('Getting POST data: ', request.data)
 
         # slice from where the token begins
-        # token = request.META.get('HTTP_AUTHORIZATION')[6:]
-        token = request.data['token']
+        token = request.META.get('HTTP_AUTHORIZATION')[6:]
+        # token = request.data['token']
         print('token: ', token)
 
         if not Token.objects.filter(key=token).exists():
@@ -231,7 +249,7 @@ class LocationRiskView(APIView):
         location = request.GET.get('location')
         if not location:
             data['denied'] = 'No location provided.'
-            return Response(data)
+            return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
 
 
         # get all routines of a particular location
@@ -249,7 +267,7 @@ class LocationRiskView(APIView):
         print('affected_rate: ', affected_rate)
 
         data['affected_rate'] = affected_rate
-        data['amount_data'] = 'Calculated from ' + str(location_routines.count()) + ' records for ' + location + '.'
+        data['num_records'] = location_routines.count()
 
         return Response(data)
 
@@ -257,22 +275,22 @@ class LocationRiskView(APIView):
         # for location in distinct_locations:
 
 class PredictionView(APIView):
-    # permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         print('In get_prediction:')
         data = {}
 
         # slice from where the token begins
-        # token = request.META.get('HTTP_AUTHORIZATION')[6:]
-        # print('token: ', token)
-        token = request.GET.get('token')
+        token = request.META.get('HTTP_AUTHORIZATION')[6:]
         print('token: ', token)
+        # token = request.GET.get('token')
+        # print('token: ', token)
 
         if not Token.objects.filter(key=token).exists():
             print('Invalid token.')
             data['denied'] = 'Invalid token.'
-            return Response(data)
+            return Response(data, status.HTTP_400_BAD_REQUEST)
 
         # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
         user = Token.objects.get(key=token).user
@@ -280,7 +298,7 @@ class PredictionView(APIView):
 
         probability_safe, probability_unsafe = get_affection_probability(user)
 
-        data['affection_probability'] = str(probability_unsafe) + '%'
+        data['affection_probability'] = probability_unsafe
 
         return Response(data)
 

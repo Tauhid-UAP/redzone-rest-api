@@ -36,11 +36,13 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework.authtoken',
+    'corsheaders',
 
     'analysis.apps.AnalysisConfig',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -115,3 +117,10 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ],
 }
+
+# will be needed if the client browser
+# is of different origin from the server
+# i.e, has different scheme, origin or port
+CORS_ALLOWED_ORIGINS = [
+    config('ALLOWED_CORS_ORIGIN'),
+]
