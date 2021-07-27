@@ -251,7 +251,6 @@ class LocationRiskView(APIView):
             data['denied'] = 'No location provided.'
             return Response(data=data, status=status.HTTP_400_BAD_REQUEST)
 
-
         # get all routines of a particular location
         location_routines = Routine.objects.filter(location=location)
         print('location_routines: ', location_routines)
@@ -287,13 +286,15 @@ class PredictionView(APIView):
         # token = request.GET.get('token')
         # print('token: ', token)
 
-        if not Token.objects.filter(key=token).exists():
-            print('Invalid token.')
-            data['denied'] = 'Invalid token.'
-            return Response(data, status.HTTP_400_BAD_REQUEST)
-
         # https://stackoverflow.com/questions/44212188/get-user-object-from-token-string-in-drf
         user = Token.objects.get(key=token).user
+        if user.routine_set.count() == 0:
+            # if user does not have any routines
+            # return with http 400
+            print('Invalid token.')
+            data['denied'] = 'No routines found!.'
+            return Response(data, status.HTTP_400_BAD_REQUEST)
+
         print('user: ', user)
 
         probability_safe, probability_unsafe = get_affection_probability(user)
