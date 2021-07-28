@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+from posixpath import split
+from typing import cast
 
 from decouple import config
 
@@ -23,6 +25,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')
+
+# separate all allowed origins from .env by ,
+# truncate leading and trailing whitespaces
+# form a list and assign
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=lambda v: [s.strip() for s in v.split(',')])
 
 # Application definition
 
@@ -121,6 +128,7 @@ REST_FRAMEWORK = {
 # will be needed if the client browser
 # is of different origin from the server
 # i.e, has different scheme, origin or port
-CORS_ALLOWED_ORIGINS = [
-    config('ALLOWED_CORS_ORIGIN'),
-]
+# separate all allowed origins from .env by ,
+# truncate leading and trailing whitespaces
+# form a list and assign
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', cast=lambda v: [s.strip() for s in v.split(',')])

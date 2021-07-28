@@ -2,8 +2,6 @@ from .base import *
 
 DEBUG = False
 
-ALLOWED_HOSTS = [config('HOST1')]
-
 # Database
 
 DATABASES = {
